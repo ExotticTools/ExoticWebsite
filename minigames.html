@@ -46,6 +46,7 @@
     <h1>Pong Mini Game</h1>
     <canvas id="pongCanvas" width="600" height="400"></canvas>
     <div id="scoreboard">Player 1: 0 | Player 2: 0</div>
+    <button class="btn" onclick="togglePause()">Pause/Resume</button>
     <button class="btn" onclick="restartGame()">Restart Game</button>
 
     <script>
@@ -55,17 +56,24 @@
         let paddleHeight = 75, paddleWidth = 10;
         let rightPaddleY = (canvas.height - paddleHeight) / 2;
         let leftPaddleY = (canvas.height - paddleHeight) / 2;
-        const paddleSpeed = 8;
+        let paddleSpeed = 8, paddleAccel = 0.2;
 
         let ballX = canvas.width / 2, ballY = canvas.height / 2;
         let ballRadius = 10;
         let ballSpeedX = 3, ballSpeedY = 3;
+        let ballMaxSpeed = 10;
 
         let player1Score = 0;
         let player2Score = 0;
+        let gamePaused = false;
 
         let upPressed = false, downPressed = false;
         let wPressed = false, sPressed = false;
+
+        // Sounds
+        const paddleHitSound = new Audio('paddle_hit.wav');
+        const wallHitSound = new Audio('wall_hit.wav');
+        const scoreSound = new Audio('score.wav');
 
         function drawBall() {
             ctx.beginPath();
@@ -88,12 +96,10 @@
         }
 
         function draw() {
+            if (gamePaused) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw the ball
             drawBall();
-
-            // Draw the paddles
             drawPaddle(0, leftPaddleY); // Left paddle
             drawPaddle(canvas.width - paddleWidth, rightPaddleY); // Right paddle
 
@@ -101,87 +107,108 @@
             ballX += ballSpeedX;
             ballY += ballSpeedY;
 
-            // Ball collision with top and bottom
+            // Ball collision with top and bottom walls
             if (ballY + ballRadius > canvas.height || ballY - ballRadius < 0) {
                 ballSpeedY = -ballSpeedY;
+                wallHitSound.play(); // Wall hit sound
             }
 
             // Ball collision with paddles
             if (ballX - ballRadius < paddleWidth) {
                 if (ballY > leftPaddleY && ballY < leftPaddleY + paddleHeight) {
+                    let hitPos = (ballY - leftPaddleY) / paddleHeight - 0.5;
                     ballSpeedX = -ballSpeedX;
+                    ballSpeedY += hitPos * 6; // Add some angle based on where the paddle hits
+                    ballSpeedX = Math.min(ballSpeedX + 0.5, ballMaxSpeed); // Speed up ball
+                    paddleHitSound.play();
                 } else {
                     player2Score++;
-                    restartGame();
+                    scoreSound.play();
+                    resetBall();
                 }
             } else if (ballX + ballRadius > canvas.width - paddleWidth) {
                 if (ballY > rightPaddleY && ballY < rightPaddleY + paddleHeight) {
+                    let hitPos = (ballY - rightPaddleY) / paddleHeight - 0.5;
                     ballSpeedX = -ballSpeedX;
+                    ballSpeedY += hitPos * 6;
+                    ballSpeedX = Math.min(ballSpeedX + 0.5, ballMaxSpeed);
+                    paddleHitSound.play();
                 } else {
                     player1Score++;
-                    restartGame();
+                    scoreSound.play();
+                    resetBall();
                 }
             }
 
             // Paddle movement
-            if (upPressed && rightPaddleY > 0) {
-                rightPaddleY -= paddleSpeed;
-            } else if (downPressed && rightPaddleY < canvas.height - paddleHeight) {
-                rightPaddleY += paddleSpeed;
-            }
+            if (upPressed && rightPaddleY > 0) rightPaddleY -= paddleSpeed;
+            if (downPressed && rightPaddleY < canvas.height - paddleHeight) rightPaddleY += paddleSpeed;
 
-            if (wPressed && leftPaddleY > 0) {
-                leftPaddleY -= paddleSpeed;
-            } else if (sPressed && leftPaddleY < canvas.height - paddleHeight) {
-                leftPaddleY += paddleSpeed;
-            }
+            if (wPressed && leftPaddleY > 0) leftPaddleY -= paddleSpeed;
+            if (sPressed && leftPaddleY < canvas.height - paddleHeight) leftPaddleY += paddleSpeed;
 
-            // Draw updated score
+            // Update scores
             drawScore();
 
             requestAnimationFrame(draw);
         }
 
+        function resetBall() {
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            ballSpeedX = (Math.random() < 0.5 ? -3 : 3);
+            ballSpeedY = (Math.random() < 0.5 ? -3 : 3);
+
+            setTimeout(() => requestAnimationFrame(draw), 2000); // Delay ball movement after score
+        }
+
         function keyDownHandler(e) {
-            if (e.key == 'Up' || e.key == 'ArrowUp') {
-                upPressed = true;
-            } else if (e.key == 'Down' || e.key == 'ArrowDown') {
-                downPressed = true;
-            } else if (e.key == 'w') {
-                wPressed = true;
-            } else if (e.key == 's') {
-                sPressed = true;
+            switch (e.key) {
+                case 'ArrowUp': upPressed = true; break;
+                case 'ArrowDown': downPressed = true; break;
+                case 'w': wPressed = true; break;
+                case 's': sPressed = true; break;
             }
         }
 
         function keyUpHandler(e) {
-            if (e.key == 'Up' || e.key == 'ArrowUp') {
-                upPressed = false;
-            } else if (e.key == 'Down' || e.key == 'ArrowDown') {
-                downPressed = false;
-            } else if (e.key == 'w') {
-                wPressed = false;
-            } else if (e.key == 's') {
-                sPressed = false;
+            switch (e.key) {
+                case 'ArrowUp': upPressed = false; break;
+                case 'ArrowDown': downPressed = false; break;
+                case 'w': wPressed = false; break;
+                case 's': sPressed = false; break;
             }
         }
 
+        function touchStartHandler(e) {
+            let touch = e.touches[0];
+            if (touch.pageX < canvas.width / 2) {
+                if (touch.pageY < leftPaddleY + paddleHeight / 2) wPressed = true;
+                else sPressed = true;
+            } else {
+                if (touch.pageY < rightPaddleY + paddleHeight / 2) upPressed = true;
+                else downPressed = true;
+            }
+        }
+
+        function touchEndHandler() {
+            wPressed = sPressed = upPressed = downPressed = false;
+        }
+
+        function togglePause() {
+            gamePaused = !gamePaused;
+            if (!gamePaused) requestAnimationFrame(draw);
+        }
+
         function restartGame() {
-            // Reset ball position and speed
-            ballX = canvas.width / 2;
-            ballY = canvas.height / 2;
-
-            // Randomize ball direction (either -1 or 1 for X and Y direction)
-            ballSpeedX = (Math.random() < 0.5 ? -3 : 3);
-            ballSpeedY = (Math.random() < 0.5 ? -3 : 3);
-
-            // Reset paddle positions
-            rightPaddleY = (canvas.height - paddleHeight) / 2;
-            leftPaddleY = (canvas.height - paddleHeight) / 2;
+            player1Score = player2Score = 0;
+            resetBall();
         }
 
         document.addEventListener('keydown', keyDownHandler);
         document.addEventListener('keyup', keyUpHandler);
+        canvas.addEventListener('touchstart', touchStartHandler);
+        canvas.addEventListener('touchend', touchEndHandler);
 
         // Start the game loop
         draw();
