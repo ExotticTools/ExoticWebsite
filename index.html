@@ -9,6 +9,7 @@
             margin: 0;
             height: 100vh;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             background: linear-gradient(to right, rgb(207, 145, 145), rgb(212, 182, 127), rgb(233, 233, 105), rgb(130, 219, 130), rgb(105, 105, 212), rgb(116, 26, 180), rgb(245, 173, 245));
@@ -28,9 +29,17 @@
         .btn:hover {
             background-color: #f0f0f0;
         }
+
+        .credits {
+            margin-top: 20px;
+            font-size: 46px;
+            font-weight: bold;
+            color: #333;
+        }
     </style>
 </head>
 <body>
     <button class="btn" onclick="window.location.href='minigames.html';">Go to Mini Games</button>
+    <p class="credits">Made from love by ChatGPT and nightxxcat</p>
 </body>
 </html>
